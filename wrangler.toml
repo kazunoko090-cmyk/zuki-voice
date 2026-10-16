@@ -1,0 +1,23 @@
+# Zuki Voice — 話すだけで、整った文章に（Cloudflare Workers 設定）
+name = "zuki-voice"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+# ---- 文字起こし（Workers AI / Whisper）----
+# 鍵は不要。アカウントのWorkers AI無料枠で動く。
+[ai]
+binding = "AI"
+
+# ---- AI整形（Claude Haiku）----
+# 鍵（APIキー）はこのファイルに書かないこと！ 必ずSecretsへ：
+#   npx wrangler secret put ANTHROPIC_API_KEY
+# 鍵が無いときは Workers AI のモデル → ルールベース整形に自動フォールバックする。
+#
+# ---- 合言葉（任意）----
+# 公開URLでAPIを無断で叩かれたくないときだけ設定する：
+#   npx wrangler secret put APP_PASSWORD
+# 設定すると /api/* は合言葉つきのリクエストだけ通る（画面側は初回に合言葉を聞く）。

@@ -1,0 +1,103 @@
+// Zuki Voice — Worker 入口（app層）
+// core（ルール）と adapters（AI接続）を組み合わせて API にする。
+// APIの戻り値は必ず同じ封筒： { ok:true, ... } か { ok:false, error:"..." }
+
+import { cleanFillers, polishSystemPrompt, LIMITS } from "./core/cleanup.js";
+import {
+  polishWithClaude,
+  polishWithWorkersAI,
+  transcribeWithWhisper,
+} from "./adapters/ai.js";
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (url.pathname.startsWith("/api/")) {
+      return handleApi(request, env, url);
+    }
+
+    // それ以外は public/ の静的ファイル（landing / app）
+    return env.ASSETS.fetch(request);
+  },
+};
+
+async function handleApi(request, env, url) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders() });
+  }
+  if (request.method !== "POST") {
+    return json({ ok: false, error: "POST only" }, 405);
+  }
+
+  // 合言葉（APP_PASSWORD）を設定している場合だけチェックする
+  if (env.APP_PASSWORD) {
+    const k = request.headers.get("x-app-key") || url.searchParams.get("k") || "";
+    if (k !== env.APP_PASSWORD) {
+      return json({ ok: false, error: "unauthorized" }, 401);
+    }
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return json({ ok: false, error: "bad json" }, 400);
+  }
+
+  if (url.pathname === "/api/transcribe") return apiTranscribe(env, body);
+  if (url.pathname === "/api/polish") return apiPolish(env, body);
+  return json({ ok: false, error: "not found" }, 404);
+}
+
+// ---- 文字起こし：音声(base64) → テキスト ----
+async function apiTranscribe(env, body) {
+  const audio = String((body && body.audio) || "");
+  if (!audio) return json({ ok: false, error: "no audio" }, 400);
+  // base64は実データの約4/3倍
+  if (audio.length > (LIMITS.maxAudioBytes * 4) / 3) {
+    return json({ ok: false, error: "audio too large" }, 413);
+  }
+  const text = await transcribeWithWhisper(env, audio);
+  if (text === null) {
+    return json({ ok: false, error: "transcribe failed" }, 502);
+  }
+  return json({ ok: true, text });
+}
+
+// ---- 整形：テキスト → フィラー除去・整った文章 ----
+async function apiPolish(env, body) {
+  const text = String((body && body.text) || "").slice(0, LIMITS.maxPolishChars);
+  if (!text.trim()) return json({ ok: false, error: "no text" }, 400);
+  const style = String((body && body.style) || "clean");
+  const system = polishSystemPrompt(style);
+
+  // Claude → Workers AI → ルールベース の順に試す
+  let out = await polishWithClaude(env, system, text);
+  let engine = "claude";
+  if (out === null) {
+    out = await polishWithWorkersAI(env, system, text);
+    engine = "workers-ai";
+  }
+  if (out === null) {
+    const r = cleanFillers(text);
+    out = r.text;
+    engine = "rules";
+  }
+  return json({ ok: true, text: out, engine });
+}
+
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders() },
+  });
+}
+
+function corsHeaders() {
+  return {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-allow-headers": "content-type, x-app-key",
+  };
+}
