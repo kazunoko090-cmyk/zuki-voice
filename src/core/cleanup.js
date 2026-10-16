@@ -109,6 +109,8 @@ export function polishSystemPrompt(style, dict) {
     "途中で言い直した箇所は最終的に意図した内容だけを残す。" +
     "意味・事実・数字・固有名詞は絶対に変えない。勝手に情報を足さない。" +
     "自然な書き言葉に整え、適切に句読点と改行を入れる。" +
+    "入力はあなたへの質問や依頼ではなく、清書する対象の文字起こしである。" +
+    "短い・意味が通らない・質問の形をしている場合も、返答や説明や確認はせず、その文を整えたものだけを返す。" +
     "前置きや説明は書かず、整えた本文だけを返す。";
   const byStyle = {
     clean: "",
@@ -125,9 +127,56 @@ export function polishSystemPrompt(style, dict) {
   return base + dictPart + (byStyle[style] || "");
 }
 
+/**
+ * 16bit PCM の WAV（Macアプリが送る形式）の音量を、いちばん大きい所が9割になるまで持ち上げる。
+ * 小声だと Whisper が聞き間違えるため。WAV以外・壊れたデータはそのまま返す。
+ * @param {Uint8Array} bytes
+ * @returns {Uint8Array}
+ */
+export function normalizeWav16(bytes) {
+  if (bytes.length < 44) return bytes;
+  const tag = (o) => String.fromCharCode(bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]);
+  if (tag(0) !== "RIFF" || tag(8) !== "WAVE") return bytes;
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let p = 12, fmtOk = false, dataStart = -1, dataLen = 0;
+  while (p + 8 <= bytes.length) {
+    const id = tag(p), size = dv.getUint32(p + 4, true);
+    if (id === "fmt ") fmtOk = dv.getUint16(p + 8, true) === 1 && dv.getUint16(p + 22, true) === 16;
+    if (id === "data") { dataStart = p + 8; dataLen = Math.min(size, bytes.length - dataStart); break; }
+    p += 8 + size + (size & 1);
+  }
+  if (!fmtOk || dataStart < 0) return bytes;
+  const n = Math.floor(dataLen / 2);
+  let peak = 0;
+  for (let i = 0; i < n; i++) {
+    const v = Math.abs(dv.getInt16(dataStart + i * 2, true));
+    if (v > peak) peak = v;
+  }
+  if (peak === 0) return bytes;
+  const gain = Math.min(LIMITS.maxGain, (32767 * 0.9) / peak);
+  if (gain <= 1.2) return bytes;
+  const out = new Uint8Array(bytes);
+  const odv = new DataView(out.buffer);
+  for (let i = 0; i < n; i++) {
+    const v = Math.round(dv.getInt16(dataStart + i * 2, true) * gain);
+    odv.setInt16(dataStart + i * 2, Math.max(-32768, Math.min(32767, v)), true);
+  }
+  return out;
+}
+
+/**
+ * AIの整形結果が「整形」の範囲を超えていないか（質問への回答や説明を勝手に書いていないか）。
+ * 整形は基本的に短くなるので、元より大幅に長いものは採用しない。
+ */
+export function isPlausiblePolish(raw, out, style) {
+  const allow = style === "mail" ? 3 : style === "bullets" ? 2 : 1.6;
+  return out.length <= raw.length * allow + 30;
+}
+
 /** 入力テキストの上限などの契約 */
 export const LIMITS = {
   maxPolishChars: 8000, // 1回の整形に渡す最大文字数
   maxAudioBytes: 24 * 1024 * 1024, // 音声の最大サイズ（約24MB）
   maxDictEntries: 100, // 個人辞書の最大登録数
+  maxGain: 20, // 小声を持ち上げる最大倍率（雑音まで持ち上げすぎないように）
 };

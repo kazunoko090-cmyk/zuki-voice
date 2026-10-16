@@ -2,7 +2,14 @@
 // core（ルール）と adapters（AI接続）を組み合わせて API にする。
 // APIの戻り値は必ず同じ封筒： { ok:true, ... } か { ok:false, error:"..." }
 
-import { cleanFillers, polishSystemPrompt, dictToHint, LIMITS } from "./core/cleanup.js";
+import {
+  cleanFillers,
+  polishSystemPrompt,
+  dictToHint,
+  normalizeWav16,
+  isPlausiblePolish,
+  LIMITS,
+} from "./core/cleanup.js";
 import {
   polishWithClaude,
   polishWithWorkersAI,
@@ -59,7 +66,7 @@ async function apiTranscribe(env, body) {
     return json({ ok: false, error: "audio too large" }, 413);
   }
   const hint = dictToHint(body && body.dict);
-  const text = await transcribeWithWhisper(env, audio, hint);
+  const text = await transcribeWithWhisper(env, louder(audio), hint);
   if (text === null) {
     return json({ ok: false, error: "transcribe failed" }, 502);
   }
@@ -73,11 +80,12 @@ async function apiPolish(env, body) {
   const style = String((body && body.style) || "clean");
   const system = polishSystemPrompt(style, body && body.dict);
 
-  // Claude → Workers AI → ルールベース の順に試す
-  let out = await polishWithClaude(env, system, text);
+  // Claude → Workers AI → ルールベース の順に試す（整形の範囲を超えた長文は採用しない）
+  const ok = (s) => (s !== null && isPlausiblePolish(text, s, style) ? s : null);
+  let out = ok(await polishWithClaude(env, system, text));
   let engine = "claude";
   if (out === null) {
-    out = await polishWithWorkersAI(env, system, text);
+    out = ok(await polishWithWorkersAI(env, system, text));
     engine = "workers-ai";
   }
   if (out === null) {
@@ -86,6 +94,24 @@ async function apiPolish(env, body) {
     engine = "rules";
   }
   return json({ ok: true, text: out, engine });
+}
+
+// base64 の WAV を音量補正して base64 に戻す（WAV以外はそのまま）
+function louder(b64) {
+  try {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const out = normalizeWav16(bytes);
+    if (out === bytes) return b64;
+    let s = "";
+    for (let i = 0; i < out.length; i += 0x8000) {
+      s += String.fromCharCode.apply(null, out.subarray(i, i + 0x8000));
+    }
+    return btoa(s);
+  } catch (e) {
+    return b64;
+  }
 }
 
 function json(obj, status = 200) {
