@@ -67,9 +67,11 @@ export async function transcribeWithWhisper(env, audioBase64, hint) {
   if (!env.AI) return null;
   // まず新しい turbo モデル、ダメなら旧 whisper にフォールバック
   try {
+    // 自動判定だと小声の日本語を英語と誤認することがあるので、日本語に固定する
     const d = await env.AI.run("@cf/openai/whisper-large-v3-turbo", {
       audio: audioBase64,
-      ...(hint ? { initial_prompt: hint } : {}),
+      language: "ja",
+      initial_prompt: "以下は日本語の音声です。" + (hint ? hint : ""),
     });
     const t = String((d && d.text) || "").trim();
     if (t) return t;

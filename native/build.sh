@@ -1,8 +1,8 @@
 #!/bin/bash
 # Zuki Voice ネイティブアプリをビルドして /Applications に入れる
 #   ./native/build.sh
-# 署名は ad-hoc だが、指定要件（designated requirement）をバンドルIDだけにしておくことで、
-# 作り直してもマイク・アクセシビリティの許可が外れにくくしている。
+# 署名は ad-hoc。作り直すと macOS からは別アプリに見えるので、マイクとアクセシビリティの
+# 許可をやり直す必要がある（アクセシビリティは一覧の古い Zuki Voice を − で消してから ＋ で入れ直す）。
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -31,7 +31,6 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp "$BUILD/ZukiVoice" "$APP/Contents/MacOS/ZukiVoice"
 cp Info.plist "$APP/Contents/Info.plist"
-codesign --force --sign - --identifier "$BID" \
-  -r="designated => identifier \"$BID\"" "$APP"
+codesign --force --sign - --identifier "$BID" "$APP"
 rm -rf "$BUILD"
 echo "インストールしました: $APP"

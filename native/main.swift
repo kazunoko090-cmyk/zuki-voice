@@ -18,6 +18,15 @@ let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in:
     .appendingPathComponent("ZukiVoice")
 let maxRecordSeconds: TimeInterval = 300
 
+// 動作の記録（~/Library/Logs/ZukiVoice.log）。うまく動かないときの手がかり用
+func zlog(_ msg: String) {
+    let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/ZukiVoice.log")
+    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+    let line = "\(f.string(from: Date()))  \(msg)\n"
+    if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); try? h.close() }
+    else { try? line.data(using: .utf8)!.write(to: url) }
+}
+
 // MARK: - 個人辞書
 
 let seedDict: [[String: String]] = [
@@ -78,6 +87,7 @@ final class Recorder {
     private var converter: AVAudioConverter?
     private(set) var url: URL
     var onLevel: ((Float) -> Void)?
+    var peak: Float = 0
 
     init() {
         url = FileManager.default.temporaryDirectory.appendingPathComponent("zv-\(UUID().uuidString).wav")
@@ -91,6 +101,7 @@ final class Recorder {
                                  &d, UInt32(MemoryLayout<AudioDeviceID>.size))
         }
         let inFmt = input.inputFormat(forBus: 0)
+        zlog("入力: device=\(builtInInputDevice().map { String($0) } ?? "既定") format=\(inFmt)")
         guard inFmt.channelCount > 0, inFmt.sampleRate > 0 else { throw RecError.noInput }
 
         let settings: [String: Any] = [
@@ -115,6 +126,7 @@ final class Recorder {
             var sum: Float = 0
             for i in 0..<n { sum += ch[i] * ch[i] }
             let level = min(1, sqrt(sum / Float(max(n, 1))) * 14)
+            if level > peak { peak = level }
             DispatchQueue.main.async { self.onLevel?(level) }
         }
         guard let conv = converter, let file = file else { return }
@@ -310,6 +322,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: 操作
 
     func toggle() {
+        zlog("合図を受信 state=\(state)")
         switch state {
         case .idle: startRecording()
         case .recording: finish()
@@ -318,6 +331,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startRecording() {
+        zlog("マイク許可=\(AVCaptureDevice.authorizationStatus(for: .audio).rawValue)（0未確認 1制限 2拒否 3許可）")
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .audio) { ok in
@@ -332,7 +346,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let rec = Recorder()
         rec.onLevel = { [weak self] l in self?.wave.push(l) }
-        do { try rec.start() } catch { showError("マイク不可"); return }
+        do { try rec.start() } catch { zlog("録音開始に失敗: \(error)"); showError("マイク不可"); return }
+        zlog("録音開始")
         recorder = rec
         state = .recording
         wave.reset(); wave.isHidden = false
@@ -355,6 +370,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard state == .recording, let rec = recorder else { return }
         autoStop?.invalidate()
         rec.stop(); recorder = nil
+        zlog("録音停止 最大音量=\(String(format: "%.2f", rec.peak))（0.05未満なら無音）")
         state = .busy
         okBtn.enabled = false; xBtn.enabled = false
         wave.isHidden = true; label.isHidden = true
@@ -369,12 +385,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func process(_ url: URL) async -> String? {
-        guard let data = try? Data(contentsOf: url), data.count > 8000 else { return nil } // 約0.25秒未満は無音扱い
+        let data = (try? Data(contentsOf: url)) ?? Data()
+        zlog("録音サイズ \(data.count) bytes（約\(data.count / 32000)秒）")
+        guard data.count > 8000 else { return nil } // 約0.25秒未満は無音扱い
         let dict = loadDict()
         guard let t = await post("/api/transcribe", ["audio": data.base64EncodedString(), "dict": dict]),
               (t["ok"] as? Bool) == true,
               let raw = (t["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty
-        else { return nil }
+        else { zlog("文字起こし失敗"); return nil }
+        zlog("文字起こし: \(raw.prefix(40))")
         if let p = await post("/api/polish", ["text": raw, "style": "clean", "dict": dict]),
            (p["ok"] as? Bool) == true, let out = p["text"] as? String, !out.isEmpty {
             return out
@@ -385,6 +404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func deliver(_ text: String?) {
         state = .idle
         guard let text = text else { showError("聞き取れず"); return }
+        zlog("完成 \(text.count)文字 / 貼り付け許可=\(AXIsProcessTrusted())")
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
