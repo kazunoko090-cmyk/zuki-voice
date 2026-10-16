@@ -378,7 +378,9 @@ async function polish(raw) {
 
   showResult(raw, polished, engine);
   saveHistory(polished);
-  setStatus("できました。続けてどうぞ");
+  // そのまま貼り付けられるように自動コピー（失敗しても静かに無視）
+  try { await navigator.clipboard.writeText(polished); toast("整形してコピーしました"); setStatus("コピー済み。あとは貼り付けるだけ"); }
+  catch (e) { setStatus("できました。続けてどうぞ"); }
   busy = false; micBtn.disabled = false;
 }
 
@@ -468,6 +470,11 @@ function blobToBase64(blob) {
     fr.onerror = rej;
     fr.readAsDataURL(blob);
   });
+}
+
+/* ?rec=1 なら開いた瞬間に録音開始（ホットキー起動用） */
+if (new URLSearchParams(location.search).get("rec") === "1") {
+  startRec();
 }
 </script>
 </body>
