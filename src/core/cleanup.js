@@ -67,10 +67,42 @@ function escapeRe(s) {
 }
 
 /**
+ * 個人辞書をプロンプト用の文字列にする。
+ * @param {Array<{r:string,w?:string}>} dict r=正しい表記, w=読み・よくある誤変換（任意）
+ */
+export function dictToPromptLines(dict) {
+  if (!Array.isArray(dict)) return "";
+  const lines = dict
+    .slice(0, LIMITS.maxDictEntries)
+    .map((d) => {
+      const r = String((d && d.r) || "").trim().slice(0, 40);
+      const w = String((d && d.w) || "").trim().slice(0, 40);
+      if (!r) return "";
+      return w ? `「${w}」→「${r}」` : `「${r}」`;
+    })
+    .filter(Boolean);
+  return lines.join("、");
+}
+
+/**
+ * 個人辞書をWhisperのヒント（initial_prompt）用の文字列にする。
+ */
+export function dictToHint(dict) {
+  if (!Array.isArray(dict)) return "";
+  return dict
+    .slice(0, LIMITS.maxDictEntries)
+    .map((d) => String((d && d.r) || "").trim())
+    .filter(Boolean)
+    .join("、")
+    .slice(0, 600);
+}
+
+/**
  * スタイルごとのAI整形プロンプトを返す（AI呼び出し自体はadapters側の仕事）。
  * @param {string} style "clean" | "mail" | "chat" | "bullets"
+ * @param {Array<{r:string,w?:string}>} [dict] 個人辞書
  */
-export function polishSystemPrompt(style) {
+export function polishSystemPrompt(style, dict) {
   const base =
     "あなたは音声入力の文字起こしを整える編集者。" +
     "フィラー（「えー」「あの」「えっと」「うーん」など）と無駄な繰り返しを削除し、" +
@@ -84,11 +116,18 @@ export function polishSystemPrompt(style) {
     chat: "出力は短く親しみやすいチャットメッセージにする（固すぎない自然な口調）。",
     bullets: "出力は要点を整理した箇条書きにする（記号は「・」、必要なら短い見出しも可）。",
   };
-  return base + (byStyle[style] || "");
+  const dictLines = dictToPromptLines(dict);
+  const dictPart = dictLines
+    ? "ユーザーの個人辞書。固有名詞・専門用語は必ずこの表記に直す（「誤」→「正」、単独表記はそのまま使う）：" +
+      dictLines +
+      "。"
+    : "";
+  return base + dictPart + (byStyle[style] || "");
 }
 
 /** 入力テキストの上限などの契約 */
 export const LIMITS = {
   maxPolishChars: 8000, // 1回の整形に渡す最大文字数
   maxAudioBytes: 24 * 1024 * 1024, // 音声の最大サイズ（約24MB）
+  maxDictEntries: 100, // 個人辞書の最大登録数
 };

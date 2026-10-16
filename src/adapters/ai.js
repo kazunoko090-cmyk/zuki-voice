@@ -60,14 +60,16 @@ export async function polishWithWorkersAI(env, system, text) {
 /**
  * Workers AI の Whisper で文字起こしする。
  * @param {string} audioBase64 音声データ（base64）
+ * @param {string} [hint] 個人辞書の単語ヒント（initial_promptで認識をその表記に寄せる）
  * @returns {Promise<string|null>} 文字起こしテキスト。失敗したら null
  */
-export async function transcribeWithWhisper(env, audioBase64) {
+export async function transcribeWithWhisper(env, audioBase64, hint) {
   if (!env.AI) return null;
   // まず新しい turbo モデル、ダメなら旧 whisper にフォールバック
   try {
     const d = await env.AI.run("@cf/openai/whisper-large-v3-turbo", {
       audio: audioBase64,
+      ...(hint ? { initial_prompt: hint } : {}),
     });
     const t = String((d && d.text) || "").trim();
     if (t) return t;

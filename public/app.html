@@ -128,6 +128,25 @@ body.dragging .rec-card{outline:2.5px dashed var(--ink3);outline-offset:6px}
 .icon-btn:hover{background:var(--bg);color:var(--ink)}
 .empty{color:var(--ink3);font-size:.88rem;text-align:center;padding:26px 0}
 
+/* ---- 個人辞書 ---- */
+.dict-add{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.dict-add input{
+  flex:1;min-width:150px;border:1.5px solid var(--line);border-radius:12px;
+  padding:10px 14px;font:inherit;font-size:.9rem;background:#fff;color:var(--ink);
+}
+.dict-add input:focus{outline:none;border-color:var(--ink3)}
+.dict-list{display:flex;gap:8px;flex-wrap:wrap}
+.dict-chip{
+  display:inline-flex;align-items:center;gap:8px;background:var(--card);
+  border:1px solid var(--line);border-radius:999px;padding:7px 8px 7px 16px;font-size:.87rem;
+}
+.dict-chip .w{color:var(--ink3);font-size:.78rem}
+.dict-chip button{
+  width:22px;height:22px;border-radius:50%;border:none;background:var(--bg);
+  color:var(--ink3);cursor:pointer;font-size:.8rem;line-height:1;
+}
+.dict-chip button:hover{background:#fde3e3;color:var(--red)}
+
 /* ---- トースト ---- */
 #toast{
   position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(20px);
@@ -189,6 +208,18 @@ body.dragging .rec-card{outline:2.5px dashed var(--ink3);outline-offset:6px}
       <summary>元の文字起こしを見る</summary>
       <div class="raw-txt" id="rawTxt"></div>
     </details>
+  </div>
+
+  <div class="hist-sec">
+    <div class="hist-head">
+      <h2>個人辞書 <span style="color:var(--ink3);font-weight:500;font-size:.8rem">（よく使う言葉を登録すると、聞き取りと整形がこの表記に寄ります）</span></h2>
+    </div>
+    <div class="dict-add">
+      <input type="text" id="dictRight" placeholder="正しい表記（例：Shopee）" maxlength="40">
+      <input type="text" id="dictWrong" placeholder="読み・よくある誤り（例：しょっぴー）※任意" maxlength="40">
+      <button class="btn" id="dictAdd" style="padding:10px 20px">追加</button>
+    </div>
+    <div id="dictList" class="dict-list"></div>
   </div>
 
   <div class="hist-sec">
@@ -343,7 +374,7 @@ async function processAudio(blob) {
     const r = await fetch(API + "/api/transcribe", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ audio: b64 }),
+      body: JSON.stringify({ audio: b64, dict: loadDict() }),
     });
     const j = await r.json().catch(() => null);
     if (j && j.ok && j.text) raw = j.text.trim();
@@ -370,7 +401,7 @@ async function polish(raw) {
     const r = await fetch(API + "/api/polish", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text: raw, style }),
+      body: JSON.stringify({ text: raw, style, dict: loadDict() }),
     });
     const j = await r.json().catch(() => null);
     if (j && j.ok && j.text) { polished = j.text; engine = j.engine; }
@@ -418,6 +449,71 @@ addEventListener("drop", (e) => {
   const f = [...e.dataTransfer.files].find(f => f.type.startsWith("audio/"));
   if (f) processAudio(f);
 });
+
+/* ================= 個人辞書（localStorage） ================= */
+// ずくさんの言葉の癖はここに足していく（seedVerを上げると既存ユーザーにも追記される。
+// ユーザーが消した・直した分は上書きしない）
+const DICT_SEED_VER = 1;
+const DICT_SEED = [
+  { r: "Zuki Voice", w: "ずきぼいす" },
+  { r: "JOOM", w: "じゅーむ" },
+  { r: "Shopee", w: "しょっぴー" },
+  { r: "eBay", w: "いーべい" },
+  { r: "クーパン", w: "Coupang" },
+  { r: "チャットワーク" },
+  { r: "クラウドワークス" },
+  { r: "Cloudflare", w: "クラウドフレア" },
+  { r: "駿河屋" },
+  { r: "オークファン" },
+  { r: "一番くじ" },
+  { r: "遊戯王" },
+  { r: "ポケカ" },
+];
+const DKEY = "zv_dict", DVKEY = "zv_dict_seedver", DDELKEY = "zv_dict_removed";
+function loadDict() { try { return JSON.parse(localStorage.getItem(DKEY)) || []; } catch (e) { return []; } }
+function storeDict(d) { try { localStorage.setItem(DKEY, JSON.stringify(d.slice(0, 100))); } catch (e) {} }
+function seedDict() {
+  const ver = Number(localStorage.getItem(DVKEY) || 0);
+  if (ver >= DICT_SEED_VER) return;
+  let removed = []; try { removed = JSON.parse(localStorage.getItem(DDELKEY)) || []; } catch (e) {}
+  const d = loadDict();
+  for (const s of DICT_SEED) {
+    if (!d.some(x => x.r === s.r) && !removed.includes(s.r)) d.push({ ...s });
+  }
+  storeDict(d);
+  localStorage.setItem(DVKEY, String(DICT_SEED_VER));
+}
+function renderDict() {
+  const d = loadDict(), el = $("dictList");
+  el.innerHTML = "";
+  if (!d.length) { el.innerHTML = '<div class="empty" style="padding:10px 0">まだ登録がありません</div>'; return; }
+  d.forEach((item, i) => {
+    const chip = document.createElement("span"); chip.className = "dict-chip";
+    const main = document.createElement("span"); main.textContent = item.r;
+    chip.appendChild(main);
+    if (item.w) { const w = document.createElement("span"); w.className = "w"; w.textContent = "← " + item.w; chip.appendChild(w); }
+    const del = document.createElement("button"); del.textContent = "✕"; del.title = "削除";
+    del.onclick = () => {
+      const d2 = loadDict(); const [rm] = d2.splice(i, 1); storeDict(d2);
+      try { const rem = JSON.parse(localStorage.getItem(DDELKEY)) || []; if (rm && !rem.includes(rm.r)) { rem.push(rm.r); localStorage.setItem(DDELKEY, JSON.stringify(rem)); } } catch (e) {}
+      renderDict();
+    };
+    chip.appendChild(del);
+    el.appendChild(chip);
+  });
+}
+$("dictAdd").addEventListener("click", () => {
+  const r = $("dictRight").value.trim(), w = $("dictWrong").value.trim();
+  if (!r) { $("dictRight").focus(); return; }
+  const d = loadDict();
+  if (d.some(x => x.r === r)) { toast("登録済みです"); return; }
+  d.push(w ? { r, w } : { r }); storeDict(d);
+  $("dictRight").value = ""; $("dictWrong").value = ""; $("dictRight").focus();
+  renderDict(); toast("辞書に追加しました");
+});
+$("dictWrong").addEventListener("keydown", e => { if (e.key === "Enter") $("dictAdd").click(); });
+$("dictRight").addEventListener("keydown", e => { if (e.key === "Enter") $("dictAdd").click(); });
+seedDict(); renderDict();
 
 /* ================= 履歴（localStorage） ================= */
 const HKEY = "zv_history";

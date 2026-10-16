@@ -149,7 +149,7 @@ async function onStopped(){
   let raw="";
   try{
     const b64=await blobToBase64(blob);
-    const r=await fetch("/api/transcribe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({audio:b64})});
+    const r=await fetch("/api/transcribe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({audio:b64,dict:loadDict()})});
     const j=await r.json().catch(()=>null);
     if(j&&j.ok&&j.text)raw=j.text.trim();
   }catch(e){}
@@ -157,7 +157,7 @@ async function onStopped(){
   say("整形中…");
   let polished=raw;
   try{
-    const r=await fetch("/api/polish",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:raw,style:"clean"})});
+    const r=await fetch("/api/polish",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:raw,style:"clean",dict:loadDict()})});
     const j=await r.json().catch(()=>null);
     if(j&&j.ok&&j.text)polished=j.text;
   }catch(e){}
@@ -202,6 +202,14 @@ async function copyText(t){
     ta.remove();return ok;
   }catch(e){return false}
 }
+
+/* 個人辞書。編集は /app の「個人辞書」から（初期値は app.html の DICT_SEED と同じものを持つ） */
+const DICT_FALLBACK=[
+  {r:"Zuki Voice",w:"ずきぼいす"},{r:"JOOM",w:"じゅーむ"},{r:"Shopee",w:"しょっぴー"},
+  {r:"eBay",w:"いーべい"},{r:"クーパン",w:"Coupang"},{r:"チャットワーク"},{r:"クラウドワークス"},
+  {r:"Cloudflare",w:"クラウドフレア"},{r:"駿河屋"},{r:"オークファン"},{r:"一番くじ"},{r:"遊戯王"},{r:"ポケカ"}
+];
+function loadDict(){ try{ const d=JSON.parse(localStorage.getItem("zv_dict")); return (d&&d.length)?d:DICT_FALLBACK; }catch(e){ return DICT_FALLBACK; } }
 
 function saveHistory(text){
   try{

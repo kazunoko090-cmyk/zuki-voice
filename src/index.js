@@ -2,7 +2,7 @@
 // core（ルール）と adapters（AI接続）を組み合わせて API にする。
 // APIの戻り値は必ず同じ封筒： { ok:true, ... } か { ok:false, error:"..." }
 
-import { cleanFillers, polishSystemPrompt, LIMITS } from "./core/cleanup.js";
+import { cleanFillers, polishSystemPrompt, dictToHint, LIMITS } from "./core/cleanup.js";
 import {
   polishWithClaude,
   polishWithWorkersAI,
@@ -58,7 +58,8 @@ async function apiTranscribe(env, body) {
   if (audio.length > (LIMITS.maxAudioBytes * 4) / 3) {
     return json({ ok: false, error: "audio too large" }, 413);
   }
-  const text = await transcribeWithWhisper(env, audio);
+  const hint = dictToHint(body && body.dict);
+  const text = await transcribeWithWhisper(env, audio, hint);
   if (text === null) {
     return json({ ok: false, error: "transcribe failed" }, 502);
   }
@@ -70,7 +71,7 @@ async function apiPolish(env, body) {
   const text = String((body && body.text) || "").slice(0, LIMITS.maxPolishChars);
   if (!text.trim()) return json({ ok: false, error: "no text" }, 400);
   const style = String((body && body.style) || "clean");
-  const system = polishSystemPrompt(style);
+  const system = polishSystemPrompt(style, body && body.dict);
 
   // Claude → Workers AI → ルールベース の順に試す
   let out = await polishWithClaude(env, system, text);
