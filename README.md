@@ -42,6 +42,19 @@ npx wrangler secret put ANTHROPIC_API_KEY
 npx wrangler secret put APP_PASSWORD
 ```
 
+## Mac アプリ（fn キーで使う）
+
+`native/` にあるネイティブアプリ。fn を1回タップ → 右下に小さなピルが出て録音、もう1回タップ → 整形されて元の場所に貼り付け。
+
+```bash
+./native/build.sh   # ビルドして /Applications/Zuki Voice.app に入れる
+```
+
+- fn キーは Karabiner-Elements で拾い、`notifyutil -p com.kazunoko090.zukivoice.toggle` でアプリに合図する
+- 録音は Mac 内蔵マイクを直接指定（連係カメラの iPhone マイクを拾わない）
+- 個人辞書は `~/Library/Application Support/ZukiVoice/dict.json`
+- 初回だけ「マイク」と「アクセシビリティ（貼り付け用）」の許可が必要
+
 ## プライバシー
 
 - 音声は文字起こしのためだけに処理し、サーバーには保存しない
