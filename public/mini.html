@@ -61,8 +61,15 @@ const $=id=>document.getElementById(id);
 const statusEl=$("status"),okBtn=$("okBtn"),cancelBtn=$("cancelBtn"),spin=$("spin"),waveC=$("wave");
 let mediaRecorder=null,chunks=[],stream=null,audioCtx=null,rafId=0,done=false;
 
+/* 全画面で開いてしまった場合に備えて、小さく・画面下中央に整える */
+try{
+  const W=440,H=190;
+  window.resizeTo(W,H);
+  window.moveTo(Math.round((screen.availWidth-W)/2), Math.max(0, screen.availHeight-H-80));
+}catch(e){}
+
 async function start(){
-  try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }
+  try{ stream=await getMacMic(); }
   catch(e){ statusEl.textContent="マイクが許可されていません"; okBtn.disabled=true; return; }
   const mime=["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(m=>MediaRecorder.isTypeSupported(m))||"";
   mediaRecorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
@@ -72,6 +79,24 @@ async function start(){
   statusEl.textContent="どうぞ話してください";
   startWave();
   setTimeout(()=>{ if(!done) finish(); }, 300000); // 5分で自動確定
+}
+
+/* iPhone（連係カメラのマイク）を避けて、Mac本体のマイクを優先する */
+async function getMacMic(){
+  const isPhone=l=>/iphone|ipad|continuity|連係/i.test(l||"");
+  const isBuiltIn=l=>/macbook|built-?in|内蔵/i.test(l||"");
+  const pick=async()=>{
+    const mics=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="audioinput"&&d.deviceId!=="default"&&d.deviceId!=="communications");
+    return mics.find(d=>isBuiltIn(d.label)) || mics.find(d=>d.label&&!isPhone(d.label)) || null;
+  };
+  let dev=await pick();
+  let s=await navigator.mediaDevices.getUserMedia({audio:dev?{deviceId:{exact:dev.deviceId}}:true});
+  const label=(s.getAudioTracks()[0]||{}).label;
+  if(!dev && isPhone(label)){
+    dev=await pick(); // 許可後はラベルが読めるので選び直す
+    if(dev){ s.getTracks().forEach(t=>t.stop()); s=await navigator.mediaDevices.getUserMedia({audio:{deviceId:{exact:dev.deviceId}}}); }
+  }
+  return s;
 }
 
 function startWave(){
