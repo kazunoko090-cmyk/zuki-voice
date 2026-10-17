@@ -205,6 +205,30 @@ export function isPlausiblePolish(raw, out, style, dict) {
   return hit / chars.length >= 0.8;
 }
 
+// Whisper は無音・雑音を聞くと、学習データ（動画の字幕）に多い決まり文句を書いてしまう。
+// 音声入力でずくさんが言うことはまず無いものだけを、文の区切りごと消す。
+const WHISPER_PHANTOMS = [
+  /(最後まで)?ご(視聴|清聴)(いただき|頂き)?(本当に|誠に)?ありがとうございました[。！!]?/g,
+  /チャンネル登録(と高評価)?(を)?よろしくお願いします[。！!]?/g,
+  /(この)?動画(は|を)?(ここまで|以上)です[。！!]?/g,
+  /また次の動画で(お会いしましょう)?[。！!]?/g,
+  /thanks?( you)?( so much| very much)? for watching[.!]?/gi,
+  /(please )?(like and )?subscribe( to (my|the|our) channel)?[.!]?/gi,
+  /see you (in the )?next (video|time)[.!]?/gi,
+  /[（(]?字幕(作成|制作|提供)?[:：][^。\n）)]*[）)]?/g,
+];
+
+/**
+ * Whisper が無音から作った「ご視聴ありがとうございました」等を取り除く。
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripWhisperPhantoms(text) {
+  let t = String(text || "");
+  for (const re of WHISPER_PHANTOMS) t = t.replace(re, "");
+  return t.replace(/\s{2,}/g, " ").replace(/^[、。\s]+/, "").trim();
+}
+
 /** 入力テキストの上限などの契約 */
 export const LIMITS = {
   maxPolishChars: 8000, // 1回の整形に渡す最大文字数

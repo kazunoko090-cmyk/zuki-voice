@@ -10,6 +10,7 @@ import {
   isPlausiblePolish,
   polishUserMessage,
   tidyPolished,
+  stripWhisperPhantoms,
   LIMITS,
 } from "./core/cleanup.js";
 import {
@@ -72,7 +73,7 @@ async function apiTranscribe(env, body) {
   if (text === null) {
     return json({ ok: false, error: "transcribe failed" }, 502);
   }
-  return json({ ok: true, text });
+  return json({ ok: true, text: stripWhisperPhantoms(text) });
 }
 
 // ---- 整形：テキスト → フィラー除去・整った文章 ----

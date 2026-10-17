@@ -72,6 +72,7 @@ export async function transcribeWithWhisper(env, audioBase64, hint) {
     const d = await env.AI.run("@cf/openai/whisper-large-v3-turbo", {
       audio: audioBase64,
       language: "ja",
+      vad_filter: true, // 無音部分を飛ばす（無音から「ご視聴ありがとうございました」を作るのを防ぐ）
       initial_prompt: "以下は日本語の音声です。" + (hint ? hint : ""),
     });
     const t = String((d && d.text) || "").trim();
