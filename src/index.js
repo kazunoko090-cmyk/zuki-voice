@@ -8,6 +8,8 @@ import {
   dictToHint,
   normalizeWav16,
   isPlausiblePolish,
+  polishUserMessage,
+  tidyPolished,
   LIMITS,
 } from "./core/cleanup.js";
 import {
@@ -78,15 +80,27 @@ async function apiPolish(env, body) {
   const text = String((body && body.text) || "").slice(0, LIMITS.maxPolishChars);
   if (!text.trim()) return json({ ok: false, error: "no text" }, 400);
   const style = String((body && body.style) || "clean");
-  const system = polishSystemPrompt(style, body && body.dict);
+  const dict = body && body.dict;
+  const system = polishSystemPrompt(style, dict);
+  const msg = polishUserMessage(text);
 
-  // Claude → Workers AI → ルールベース の順に試す（整形の範囲を超えた長文は採用しない）
-  const ok = (s) => (s !== null && isPlausiblePolish(text, s, style) ? s : null);
-  let out = ok(await polishWithClaude(env, system, text));
+  // Claude → Workers AI → ルールベース の順に試す。
+  // 元の発言からかけ離れた結果（頼みごとに勝手に答えた等）は採用しない
+  const ok = (s) => {
+    if (s === null) return null;
+    const t = tidyPolished(s);
+    return t && isPlausiblePolish(text, t, style, dict) ? t : null;
+  };
+  const claudeRaw = await polishWithClaude(env, system, msg);
+  let out = ok(claudeRaw);
   let engine = "claude";
-  if (out === null) {
-    out = ok(await polishWithWorkersAI(env, system, text));
+  // Workers AI（Llama）は頼みごとに答えてしまうことが多いので、Claude が使えないときの代打だけにする
+  if (out === null && claudeRaw === null) {
+    out = ok(await polishWithWorkersAI(env, system, msg));
     engine = "workers-ai";
+  }
+  if (body && body.debug) {
+    return json({ ok: true, debug: { claudeRaw, accepted: out } });
   }
   if (out === null) {
     const r = cleanFillers(text);

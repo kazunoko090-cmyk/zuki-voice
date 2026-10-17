@@ -18,6 +18,7 @@ export async function polishWithClaude(env, system, text) {
       body: JSON.stringify({
         model: "claude-haiku-4-5",
         max_tokens: 3000,
+        temperature: 0,
         system,
         messages: [{ role: "user", content: text }],
       }),
