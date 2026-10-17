@@ -207,7 +207,7 @@ async function copyText(t){
 const DICT_FALLBACK=[
   {r:"Zuki Voice",w:"ずきぼいす"},{r:"JOOM",w:"じゅーむ"},{r:"Shopee",w:"しょっぴー"},
   {r:"eBay",w:"いーべい"},{r:"クーパン",w:"Coupang"},{r:"チャットワーク"},{r:"クラウドワークス"},
-  {r:"Cloudflare",w:"クラウドフレア"},{r:"駿河屋"},{r:"オークファン"},{r:"一番くじ"},{r:"遊戯王"},{r:"ポケカ"}
+  {r:"Cloudflare",w:"クラウドフレア"},{r:"駿河屋"},{r:"オークファン"},{r:"一番くじ"},{r:"遊戯王"},{r:"ポケカ"},{r:"Wise",w:"ワイズ、YS"}
 ];
 function loadDict(){ try{ const d=JSON.parse(localStorage.getItem("zv_dict")); return (d&&d.length)?d:DICT_FALLBACK; }catch(e){ return DICT_FALLBACK; } }
 
