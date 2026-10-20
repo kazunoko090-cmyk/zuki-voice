@@ -453,7 +453,7 @@ addEventListener("drop", (e) => {
 /* ================= 個人辞書（localStorage） ================= */
 // ずくさんの言葉の癖はここに足していく（seedVerを上げると既存ユーザーにも追記される。
 // ユーザーが消した・直した分は上書きしない）
-const DICT_SEED_VER = 2;
+const DICT_SEED_VER = 3;
 const DICT_SEED = [
   { r: "Zuki Voice", w: "ずきぼいす" },
   { r: "JOOM", w: "じゅーむ" },
@@ -469,6 +469,7 @@ const DICT_SEED = [
   { r: "遊戯王" },
   { r: "ポケカ" },
   { r: "Wise", w: "ワイズ、YS" },
+  { r: "絵", w: "A（文脈が絵・画像のときだけ）" },
 ];
 const DKEY = "zv_dict", DVKEY = "zv_dict_seedver", DDELKEY = "zv_dict_removed";
 function loadDict() { try { return JSON.parse(localStorage.getItem(DKEY)) || []; } catch (e) { return []; } }
