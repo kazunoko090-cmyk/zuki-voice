@@ -453,7 +453,7 @@ addEventListener("drop", (e) => {
 /* ================= 個人辞書（localStorage） ================= */
 // ずくさんの言葉の癖はここに足していく（seedVerを上げると既存ユーザーにも追記される。
 // ユーザーが消した・直した分は上書きしない）
-const DICT_SEED_VER = 4;
+const DICT_SEED_VER = 5;
 const DICT_SEED = [
   { r: "Zuki Voice", w: "ずきぼいす" },
   { r: "JOOM", w: "じゅーむ" },
@@ -471,6 +471,7 @@ const DICT_SEED = [
   { r: "Wise", w: "ワイズ、YS" },
   { r: "絵", w: "A（文脈が絵・画像のときだけ）" },
   { r: "備考", w: "美行、びこう" },
+  { r: "上記", w: "蒸気", ctx: "の件|の内容|の通り|のとおり|適用|で問題|でお願い|を参照|に記載|記載|をご確認|を確認" }, // ctx＝後ろにこの言葉が続くときだけ置き換える
 ];
 const DKEY = "zv_dict", DVKEY = "zv_dict_seedver", DDELKEY = "zv_dict_removed";
 function loadDict() { try { return JSON.parse(localStorage.getItem(DKEY)) || []; } catch (e) { return []; } }
@@ -494,7 +495,7 @@ function renderDict() {
     const chip = document.createElement("span"); chip.className = "dict-chip";
     const main = document.createElement("span"); main.textContent = item.r;
     chip.appendChild(main);
-    if (item.w) { const w = document.createElement("span"); w.className = "w"; w.textContent = "← " + item.w; chip.appendChild(w); }
+    if (item.w) { const w = document.createElement("span"); w.className = "w"; w.textContent = "← " + item.w + (item.ctx ? "（後ろが「" + item.ctx.split("|")[0] + "」などのときだけ）" : ""); chip.appendChild(w); }
     const del = document.createElement("button"); del.textContent = "✕"; del.title = "削除";
     del.onclick = () => {
       const d2 = loadDict(); const [rm] = d2.splice(i, 1); storeDict(d2);

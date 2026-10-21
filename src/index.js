@@ -11,6 +11,7 @@ import {
   polishUserMessage,
   tidyPolished,
   stripWhisperPhantoms,
+  applyContextDict,
   LIMITS,
 } from "./core/cleanup.js";
 import {
@@ -78,10 +79,10 @@ async function apiTranscribe(env, body) {
 
 // ---- 整形：テキスト → フィラー除去・整った文章 ----
 async function apiPolish(env, body) {
-  const text = String((body && body.text) || "").slice(0, LIMITS.maxPolishChars);
+  const dict = body && body.dict;
+  const text = applyContextDict(String((body && body.text) || "").slice(0, LIMITS.maxPolishChars), dict);
   if (!text.trim()) return json({ ok: false, error: "no text" }, 400);
   const style = String((body && body.style) || "clean");
-  const dict = body && body.dict;
   const system = polishSystemPrompt(style, dict);
   const msg = polishUserMessage(text);
 
@@ -108,7 +109,7 @@ async function apiPolish(env, body) {
     out = r.text;
     engine = "rules";
   }
-  return json({ ok: true, text: out, engine });
+  return json({ ok: true, text: applyContextDict(out, dict), engine });
 }
 
 // base64 の WAV を音量補正して base64 に戻す（WAV以外はそのまま）
