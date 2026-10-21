@@ -453,7 +453,7 @@ addEventListener("drop", (e) => {
 /* ================= 個人辞書（localStorage） ================= */
 // ずくさんの言葉の癖はここに足していく（seedVerを上げると既存ユーザーにも追記される。
 // ユーザーが消した・直した分は上書きしない）
-const DICT_SEED_VER = 5;
+const DICT_SEED_VER = 6;
 const DICT_SEED = [
   { r: "Zuki Voice", w: "ずきぼいす" },
   { r: "JOOM", w: "じゅーむ" },
@@ -469,7 +469,7 @@ const DICT_SEED = [
   { r: "遊戯王" },
   { r: "ポケカ" },
   { r: "Wise", w: "ワイズ、YS" },
-  { r: "絵", w: "A（文脈が絵・画像のときだけ）" },
+  { r: "絵", w: "A", ctx: "を追加|を1枚|を一枚|を2枚|を二枚|を何枚|を入れ|を差し替|の差し替|を描|を貼|を変え|をもう少し|をもっと|を作って|を消して" },
   { r: "備考", w: "美行、びこう" },
   { r: "上記", w: "蒸気", ctx: "の件|の内容|の通り|のとおり|適用|で問題|でお願い|を参照|に記載|記載|をご確認|を確認" }, // ctx＝後ろにこの言葉が続くときだけ置き換える
 ];
@@ -482,7 +482,10 @@ function seedDict() {
   let removed = []; try { removed = JSON.parse(localStorage.getItem(DDELKEY)) || []; } catch (e) {}
   const d = loadDict();
   for (const s of DICT_SEED) {
-    if (!d.some(x => x.r === s.r) && !removed.includes(s.r)) d.push({ ...s });
+    if (removed.includes(s.r)) continue;
+    const i = d.findIndex(x => x.r === s.r);
+    if (i < 0) d.push({ ...s });
+    else d[i] = { ...s }; // 初期語彙の読み方・条件を直したときは既存の登録にも反映する
   }
   storeDict(d);
   localStorage.setItem(DVKEY, String(DICT_SEED_VER));
