@@ -12,6 +12,13 @@ binding = "ASSETS"
 [ai]
 binding = "AI"
 
+# ---- 呼び出し回数の上限（同じIPから1分に30回まで）----
+# URL を知った誰かに Claude のクレジットを一気に使われないための保険
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "2001"
+simple = { limit = 30, period = 60 }
+
 # ---- AI整形（Claude Haiku）----
 # 鍵（APIキー）はこのファイルに書かないこと！ 必ずSecretsへ：
 #   npx wrangler secret put ANTHROPIC_API_KEY

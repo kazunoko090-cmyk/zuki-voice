@@ -55,6 +55,16 @@ npx wrangler secret put APP_PASSWORD
 - 個人辞書は `~/Library/Application Support/ZukiVoice/dict.json`
 - 初回だけ「マイク」と「アクセシビリティ（貼り付け用）」の許可が必要
 
+## 言葉を覚えさせる（個人辞書）
+
+```bash
+python3 tools/add-word.py --r 備考 --w "美行、びこう"                      # よく間違える言葉
+python3 tools/add-word.py --r 上記 --w 蒸気 --ctx "の件|の内容|適用"        # 実在する言葉は後ろの言葉を条件に
+./tools/try.sh "蒸気の件、了解です" "加湿器の蒸気が強すぎる"                  # 本番で試す
+```
+
+Mac アプリの辞書（`~/Library/Application Support/ZukiVoice/dict.json`）・ブラウザ版・控えの4か所を一度にそろえる。fn キーの設定の控えは `tools/karabiner-zuki-voice.json`。
+
 ## プライバシー
 
 - 音声は文字起こしのためだけに処理し、サーバーには保存しない

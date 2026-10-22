@@ -1,0 +1,36 @@
+{
+  "title": "Zuki Voice（fn 単体タップで録音・もう一度で確定）",
+  "_how_to_use": "Karabiner-Elements の設定 → Complex Modifications → Add your own rule に rules[0] を貼る。または ~/.config/karabiner/karabiner.json の profiles[0].complex_modifications.rules に入れる",
+  "rules": [
+    {
+      "description": "fn単体タップで Zuki Voice（押しながらは普通のfn。もう一度タップで確定）",
+      "manipulators": [
+        {
+          "from": {
+            "key_code": "fn",
+            "modifiers": {
+              "optional": [
+                "any"
+              ]
+            }
+          },
+          "parameters": {
+            "basic.to_if_alone_timeout_milliseconds": 500
+          },
+          "to": [
+            {
+              "key_code": "fn",
+              "lazy": true
+            }
+          ],
+          "to_if_alone": [
+            {
+              "shell_command": "if /usr/bin/pgrep -qx ZukiVoice; then /usr/bin/notifyutil -p com.kazunoko090.zukivoice.toggle; else /usr/bin/open -g '/Applications/Zuki Voice.app' --args --toggle; fi"
+            }
+          ],
+          "type": "basic"
+        }
+      ]
+    }
+  ]
+}
