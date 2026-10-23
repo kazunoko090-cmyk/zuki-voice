@@ -5,12 +5,13 @@
 set -euo pipefail
 DICT="$HOME/Library/Application Support/ZukiVoice/dict.json"
 API="https://zuki-voice.kazunoko090.workers.dev/api/polish"
+KEY="$(cat "$HOME/Library/Application Support/ZukiVoice/key" 2>/dev/null || true)"
 for t in "$@"; do
   body=$(/usr/bin/python3 -I -c 'import json,sys
 d=json.load(open(sys.argv[1],encoding="utf-8"))
 print(json.dumps({"text":sys.argv[2],"style":"clean","dict":d},ensure_ascii=False))' "$DICT" "$t")
   out=$(curl -s -X POST "$API" -H 'content-type: application/json' \
-    -H 'user-agent: Mozilla/5.0 (Macintosh) ZukiVoice/1.0' --data "$body" \
+    -H 'user-agent: Mozilla/5.0 (Macintosh) ZukiVoice/1.0' -H "x-app-key: $KEY" --data "$body" \
     | /usr/bin/python3 -I -c 'import json,sys;d=json.load(sys.stdin);print(d.get("text"),"["+str(d.get("engine"))+"]")')
   echo "$t → $out"
 done

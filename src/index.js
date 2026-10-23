@@ -41,25 +41,24 @@ async function handleApi(request, env, url) {
     return json({ ok: false, error: "POST only" }, 405);
   }
 
-  // 呼んでよいのは Mac アプリ（UA に ZukiVoice/）か、このサイト自身の画面（Origin が同じ）だけ。
-  // 見た目で判断しているだけなので本物の鍵ではない。Mac アプリを次に作り直すときに APP_PASSWORD へ切り替える
-  const ua = request.headers.get("user-agent") || "";
-  const origin = request.headers.get("origin") || "";
-  if (!ua.includes("ZukiVoice/") && origin !== url.origin) {
-    return json({ ok: false, error: "forbidden" }, 403);
+  // 合言葉（APP_PASSWORD）があれば、それを持っている呼び出しだけ通す（Mac アプリは key ファイル、ブラウザ版は初回に入力）。
+  // 無い間だけ、見た目（Mac アプリの UA か、このサイト自身の画面か）で見分ける
+  if (env.APP_PASSWORD) {
+    const k = request.headers.get("x-app-key") || "";
+    if (k !== env.APP_PASSWORD) {
+      return json({ ok: false, error: "unauthorized" }, 401);
+    }
+  } else {
+    const ua = request.headers.get("user-agent") || "";
+    const origin = request.headers.get("origin") || "";
+    if (!ua.includes("ZukiVoice/") && origin !== url.origin) {
+      return json({ ok: false, error: "forbidden" }, 403);
+    }
   }
   if (env.LIMITER) {
     const ip = request.headers.get("cf-connecting-ip") || "unknown";
     const { success } = await env.LIMITER.limit({ key: ip });
     if (!success) return json({ ok: false, error: "too many requests" }, 429);
-  }
-
-  // 合言葉（APP_PASSWORD）を設定している場合だけチェックする
-  if (env.APP_PASSWORD) {
-    const k = request.headers.get("x-app-key") || url.searchParams.get("k") || "";
-    if (k !== env.APP_PASSWORD) {
-      return json({ ok: false, error: "unauthorized" }, 401);
-    }
   }
 
   let body;

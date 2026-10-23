@@ -60,6 +60,22 @@ canvas#wave{width:84px;height:20px;display:block}
 
 <script>
 "use strict";
+const API_BASE = "";
+/* サーバーの合言葉を付けて送る。断られたら（401）一度だけ合言葉を聞いて、このブラウザに覚える */
+async function apiFetch(path, opts) {
+  const send = () => {
+    const h = Object.assign({}, opts.headers || {});
+    let k = ""; try { k = localStorage.getItem("zv_key") || ""; } catch (e) {}
+    if (k) h["x-app-key"] = k;
+    return fetch(API_BASE + path, Object.assign({}, opts, { headers: h }));
+  };
+  let r = await send();
+  if (r.status === 401) {
+    const k = prompt("合言葉を入力してください（Mac の ~/Library/Application Support/ZukiVoice/key に書いてあります）");
+    if (k) { try { localStorage.setItem("zv_key", k.trim()); } catch (e) {} r = await send(); }
+  }
+  return r;
+}
 const $=id=>document.getElementById(id);
 const statusEl=$("status"),okBtn=$("okBtn"),cancelBtn=$("cancelBtn"),spin=$("spin"),waveC=$("wave");
 let mediaRecorder=null,chunks=[],stream=null,audioCtx=null,rafId=0,done=false;
@@ -149,7 +165,7 @@ async function onStopped(){
   let raw="";
   try{
     const b64=await blobToBase64(blob);
-    const r=await fetch("/api/transcribe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({audio:b64,dict:loadDict()})});
+    const r=await apiFetch("/api/transcribe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({audio:b64,dict:loadDict()})});
     const j=await r.json().catch(()=>null);
     if(j&&j.ok&&j.text)raw=j.text.trim();
   }catch(e){}
@@ -157,7 +173,7 @@ async function onStopped(){
   say("整形中…");
   let polished=raw;
   try{
-    const r=await fetch("/api/polish",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:raw,style:"clean",dict:loadDict()})});
+    const r=await apiFetch("/api/polish",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:raw,style:"clean",dict:loadDict()})});
     const j=await r.json().catch(()=>null);
     if(j&&j.ok&&j.text)polished=j.text;
   }catch(e){}

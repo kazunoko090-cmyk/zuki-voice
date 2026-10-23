@@ -54,6 +54,8 @@ npx wrangler secret put APP_PASSWORD
 - 録音は Mac 内蔵マイクを直接指定（連係カメラの iPhone マイクを拾わない）
 - 個人辞書は `~/Library/Application Support/ZukiVoice/dict.json`
 - 初回だけ「マイク」と「アクセシビリティ（貼り付け用）」の許可が必要
+- サーバーの合言葉は `~/Library/Application Support/ZukiVoice/key`（Worker の `APP_PASSWORD` と同じ値）。ブラウザ版は初回にこの合言葉を聞く
+- 入力したあと、クリップボードは元に戻る。ログは 64KB を超えると直近だけに縮む
 
 ## 言葉を覚えさせる（個人辞書）
 

@@ -235,6 +235,23 @@ body.dragging .rec-card{outline:2.5px dashed var(--ink3);outline-offset:6px}
 
 <script>
 "use strict";
+const API_BASE = location.origin;
+/* サーバーの合言葉を付けて送る。断られたら（401）一度だけ合言葉を聞いて、このブラウザに覚える */
+async function apiFetch(path, opts) {
+  const send = () => {
+    const h = Object.assign({}, opts.headers || {});
+    let k = ""; try { k = localStorage.getItem("zv_key") || ""; } catch (e) {}
+    if (k) h["x-app-key"] = k;
+    return fetch(API_BASE + path, Object.assign({}, opts, { headers: h }));
+  };
+  let r = await send();
+  if (r.status === 401) {
+    const k = prompt("合言葉を入力してください（Mac の ~/Library/Application Support/ZukiVoice/key に書いてあります）");
+    if (k) { try { localStorage.setItem("zv_key", k.trim()); } catch (e) {} r = await send(); }
+  }
+  return r;
+}
+
 /* ================= 状態 ================= */
 const API = location.origin;
 let style = "clean";
@@ -371,7 +388,7 @@ async function processAudio(blob) {
   let raw = "";
   try {
     const b64 = await blobToBase64(blob);
-    const r = await fetch(API + "/api/transcribe", {
+    const r = await apiFetch("/api/transcribe", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ audio: b64, dict: loadDict() }),
@@ -398,7 +415,7 @@ async function polish(raw) {
   setStatus('<span class="spinner"></span> AIが整形中…');
   let polished = raw, engine = "";
   try {
-    const r = await fetch(API + "/api/polish", {
+    const r = await apiFetch("/api/polish", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ text: raw, style, dict: loadDict() }),

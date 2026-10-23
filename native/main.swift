@@ -19,12 +19,33 @@ let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in:
 let maxRecordSeconds: TimeInterval = 300
 
 // 動作の記録（~/Library/Logs/ZukiVoice.log）。うまく動かないときの手がかり用
+// 誤変換を直すときに「何と聞き取られたか」を見たいので直近は残すが、
+// 話した内容が溜まり続けないよう、64KB を超えたら新しい方の 300 行だけにする
+let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/ZukiVoice.log")
+let logMaxBytes = 64 * 1024
+let logKeepLines = 300
+
+func trimLog() {
+    guard let attrs = try? FileManager.default.attributesOfItem(atPath: logURL.path),
+          let size = attrs[.size] as? Int, size > logMaxBytes,
+          let text = try? String(contentsOf: logURL, encoding: .utf8) else { return }
+    let kept = text.split(separator: "\n", omittingEmptySubsequences: true).suffix(logKeepLines).joined(separator: "\n") + "\n"
+    try? kept.write(to: logURL, atomically: true, encoding: .utf8)
+}
+
 func zlog(_ msg: String) {
-    let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/ZukiVoice.log")
     let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd HH:mm:ss"
     let line = "\(f.string(from: Date()))  \(msg)\n"
-    if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); try? h.close() }
-    else { try? line.data(using: .utf8)!.write(to: url) }
+    if let h = try? FileHandle(forWritingTo: logURL) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); try? h.close() }
+    else { try? line.data(using: .utf8)!.write(to: logURL) }
+    trimLog()
+}
+
+// サーバーの合言葉。~/Library/Application Support/ZukiVoice/key に1行で置く（無ければ送らない）
+func appKey() -> String? {
+    guard let s = try? String(contentsOf: supportDir.appendingPathComponent("key"), encoding: .utf8) else { return nil }
+    let k = s.trimmingCharacters(in: .whitespacesAndNewlines)
+    return k.isEmpty ? nil : k
 }
 
 // MARK: - 個人辞書
@@ -237,6 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var autoStop: Timer?
 
     func applicationDidFinishLaunching(_ n: Notification) {
+        trimLog()
         buildPanel()
         _ = loadDict()
         registerToggle()
@@ -411,16 +433,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let text = text else { showError("聞き取れず"); return }
         zlog("完成 \(text.count)文字 / 貼り付け許可=\(AXIsProcessTrusted())")
         let pb = NSPasteboard.general
+        let saved = snapshotPasteboard(pb)
         pb.clearContents()
         pb.setString(text, forType: .string)
         if AXIsProcessTrusted() {
             pasteCmdV()
             say("✓")
             hidePanel(after: 0.5)
+            // 貼り付け先が読み終わるのを待ってから、もともとコピーしていたものに戻す。
+            // その間に別の物がコピーされていたら（changeCount が変わったら）戻さない
+            let mark = pb.changeCount
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                guard pb.changeCount == mark else { return }
+                self.restorePasteboard(pb, saved)
+            }
         } else {
             say("コピー済み ⌘V")
             hidePanel(after: 1.6)
         }
+    }
+
+    // クリップボードの中身を種類ごとまるごと控える（文字・画像・ファイルなど）
+    func snapshotPasteboard(_ pb: NSPasteboard) -> [[NSPasteboard.PasteboardType: Data]] {
+        (pb.pasteboardItems ?? []).map { item in
+            var m: [NSPasteboard.PasteboardType: Data] = [:]
+            for t in item.types { if let d = item.data(forType: t) { m[t] = d } }
+            return m
+        }
+    }
+
+    func restorePasteboard(_ pb: NSPasteboard, _ saved: [[NSPasteboard.PasteboardType: Data]]) {
+        pb.clearContents()
+        if saved.isEmpty { return }
+        let items: [NSPasteboardItem] = saved.map { m in
+            let it = NSPasteboardItem()
+            for (t, d) in m { it.setData(d, forType: t) }
+            return it
+        }
+        pb.writeObjects(items)
     }
 
     func showError(_ msg: String) {
@@ -448,8 +498,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         // workers.dev は一部のUAを弾くのでブラウザ相当のUAを名乗る
         req.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ZukiVoice/1.0", forHTTPHeaderField: "User-Agent")
+        if let k = appKey() { req.setValue(k, forHTTPHeaderField: "x-app-key") }
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        guard let (d, _) = try? await URLSession.shared.data(for: req) else { return nil }
+        guard let (d, resp) = try? await URLSession.shared.data(for: req) else { zlog("通信失敗 \(path)"); return nil }
+        if let code = (resp as? HTTPURLResponse)?.statusCode, code != 200 {
+            zlog("サーバーが断った \(path) status=\(code)（401なら合言葉が合っていない）")
+        }
         return try? JSONSerialization.jsonObject(with: d) as? [String: Any]
     }
 }
