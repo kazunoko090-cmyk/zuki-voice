@@ -223,7 +223,7 @@ async function copyText(t){
 const DICT_FALLBACK=[
   {r:"Zuki Voice",w:"ずきぼいす"},{r:"JOOM",w:"じゅーむ"},{r:"Shopee",w:"しょっぴー"},
   {r:"eBay",w:"いーべい"},{r:"クーパン",w:"Coupang"},{r:"チャットワーク"},{r:"クラウドワークス"},
-  {r:"Cloudflare",w:"クラウドフレア"},{r:"駿河屋"},{r:"オークファン"},{r:"一番くじ"},{r:"遊戯王"},{r:"ポケカ"},{r:"Wise",w:"ワイズ、YS"},{r:"絵",w:"A",ctx:"を追加|を1枚|を一枚|を2枚|を二枚|を何枚|を入れ|を差し替|の差し替|を描|を貼|を変え|をもう少し|をもっと|を作って|を消して"},{r:"上記",w:"蒸気",ctx:"の件|の内容|の通り|のとおり|適用|で問題|でお願い|を参照|に記載|記載|をご確認|を確認"},{r:"サンキューカード"},{r:"サンキュー",w:"探究、探求",ctx:"カード"},{r:"備考",w:"美行、びこう"},{r:"クロムイン",w:"ChromeWin、Chrome Win、ChromeIn、Chrome In、クロームイン"},{r:"HIROGETE",w:"広げて、ひろげて、Hirogete",ctx:"に|の|で|と|が|を|へ|は"}
+  {r:"Cloudflare",w:"クラウドフレア"},{r:"駿河屋"},{r:"オークファン"},{r:"一番くじ"},{r:"遊戯王"},{r:"ポケカ"},{r:"Wise",w:"ワイズ、YS"},{r:"絵",w:"A",ctx:"を追加|を1枚|を一枚|を2枚|を二枚|を何枚|を入れ|を差し替|の差し替|を描|を貼|を変え|をもう少し|をもっと|を作って|を消して"},{r:"上記",w:"蒸気",ctx:"の件|の内容|の通り|のとおり|適用|で問題|でお願い|を参照|に記載|記載|をご確認|を確認"},{r:"サンキューカード"},{r:"サンキュー",w:"探究、探求",ctx:"カード"},{r:"備考",w:"美行、びこう"},{r:"クロムイン",w:"ChromeWin、Chrome Win、ChromeIn、Chrome In、クロームイン"},{r:"HIROGETE",w:"広げて、ひろげて、Hirogete",ctx:"に|の|で|と|が|を|へ|は"},{r:"住所",w:"重症、じゅうしょ"}
 ];
 function loadDict(){ try{ const d=JSON.parse(localStorage.getItem("zv_dict")); return (d&&d.length)?d:DICT_FALLBACK; }catch(e){ return DICT_FALLBACK; } }
 

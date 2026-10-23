@@ -59,8 +59,8 @@ let seedDict: [[String: String]] = [
     ["r": "サンキューカード"], ["r": "サンキュー", "w": "探究、探求", "ctx": "カード"],
     ["r": "備考", "w": "美行、びこう"],
     ["r": "クロムイン", "w": "ChromeWin、Chrome Win、ChromeIn、Chrome In、クロームイン"],
-    
     ["r": "HIROGETE", "w": "広げて、ひろげて、Hirogete", "ctx": "に|の|で|と|が|を|へ|は"],
+    ["r": "住所", "w": "重症、じゅうしょ"],
 ]
 
 func loadDict() -> [[String: String]] {
