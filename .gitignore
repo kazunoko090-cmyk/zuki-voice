@@ -2,3 +2,8 @@ node_modules/
 .wrangler/
 .DS_Store
 .dev.vars
+
+# 秘密ファイルをGitに入れない（2026-10-24 セキュリティ点検で追加）
+.env
+.env.*
+!.env.example
