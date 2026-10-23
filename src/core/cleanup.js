@@ -150,7 +150,8 @@ export function polishSystemPrompt(style, dict) {
   };
   const dictLines = dictToPromptLines(dict);
   const dictPart = dictLines
-    ? "話し手の個人辞書。固有名詞・専門用語はこの表記に直す（「誤」→「正」、単独表記はそのまま使う）：" +
+    ? "話し手の個人辞書。「誤」→「正」と書かれた表記だけを、その「正」に直す（単独表記はそのまま使う）。" +
+    "「誤」に書かれていない言葉は、音が似ていても別の言葉なので絶対に直さない（例：「ペイオニア」の辞書があっても、「パイオニア」は直さない）：" +
       dictLines +
       "。"
     : "";
