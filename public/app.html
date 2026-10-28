@@ -470,7 +470,7 @@ addEventListener("drop", (e) => {
 /* ================= 個人辞書（localStorage） ================= */
 // ずくさんの言葉の癖はここに足していく（seedVerを上げると既存ユーザーにも追記される。
 // ユーザーが消した・直した分は上書きしない）
-const DICT_SEED_VER = 16;
+const DICT_SEED_VER = 17;
 const DICT_SEED = [
   { r: "Zuki Voice", w: "ずきぼいす" },
   { r: "JOOM", w: "じゅーむ" },
@@ -496,6 +496,7 @@ const DICT_SEED = [
   { r: "住所", w: "重症、じゅうしょ" },
   { r: "ペイオニア", w: "ピヨニア、ピオニア、ペイヨニア、Payonia、Payoneer" },
   { r: "Catawiki", w: "片駅、カタウィキ、かたうぃき、カタエキ、catawiki" },
+  { r: "ASIN", w: "親指、アシン、エーシン", ctx: "0|1|2|3|4|5|6|7|8|9|０|１|２|３|４|５|６|７|８|９|一覧|コード|番号|で検索|を調べ|を取得|を貼|を登録|を抜き出|ごと|で照合" },
 ];
 const DKEY = "zv_dict", DVKEY = "zv_dict_seedver", DDELKEY = "zv_dict_removed";
 function loadDict() { try { return JSON.parse(localStorage.getItem(DKEY)) || []; } catch (e) { return []; } }
